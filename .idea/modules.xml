@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/RTSP.iml" filepath="$PROJECT_DIR$/RTSP.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Tiny-IRC.iml" filepath="$PROJECT_DIR$/Tiny-IRC.iml" />
     </modules>
   </component>
 </project>
