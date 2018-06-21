@@ -118,7 +118,10 @@ public class Client
 
                     if (line.startsWith("SUBMIT_NAME"))
                     {
-                        out.println(getUsername());
+                        String username = getUsername();
+                        out.println(username);
+                        if (username == null || username.equals("\0"))
+                            socket = null;
                     }
 
                     if (line.startsWith("NAME_ACCEPTED"))
@@ -129,7 +132,8 @@ public class Client
 
                     if (line.startsWith("NAME_DENIED"))
                     {
-                        JOptionPane.showMessageDialog(frame, "Invalid username\nName denied by server (In use?)", "Error", JOptionPane.ERROR_MESSAGE);
+                        String reason = line.substring("NAME_DENIED".length() + 1).trim();
+                        JOptionPane.showMessageDialog(frame, "Invalid username" + (!reason.isEmpty() ? "\n" + reason : ""), "Error", JOptionPane.ERROR_MESSAGE);
                     }
 
                     if (line.startsWith("MESSAGE"))
@@ -151,6 +155,20 @@ public class Client
 
                         socket = null;
                         JOptionPane.showMessageDialog(frame, "You have been kicked" + (message != null ? "\n" + message : ""), "Kicked", JOptionPane.INFORMATION_MESSAGE);
+                    }
+
+                    if (line.startsWith("PURGE"))
+                    {
+                        int amount = -1;
+
+                        try
+                        {
+                            amount = Integer.parseInt(line.substring("PURGE".length() + 1).trim());
+                        } catch (Exception e)
+                        {
+                        }
+
+                        messagePanel.removeAll();
                     }
 
                     Thread.sleep(8);
@@ -223,7 +241,10 @@ public class Client
     {
         String username = JOptionPane.showInputDialog(frame, "Enter unique username:", "User", JOptionPane.PLAIN_MESSAGE);
 
-        if (username == null || (username = username.trim()).isEmpty())
+        if (username == null)
+            return "\0";
+
+        if ((username = username.trim()).isEmpty())
         {
             JOptionPane.showMessageDialog(frame, "Invalid Username\nName cannot be blank", "Error", JOptionPane.ERROR_MESSAGE);
             return getUsername();

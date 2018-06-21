@@ -122,11 +122,25 @@ public class Server
                 {
                     out.println("SUBMIT_NAME");
                     username = in.readLine();
+
+                    if (username == null || username.equals("\0"))
+                    {
+                        System.out.println("Connection cancelled, disconnecting");
+                        socket.close();
+                        return;
+                    }
+
                     System.out.println("Received username \"" + username + "\"");
 
-                    if (username == null || (username = username.trim()).isEmpty())
+                    if ((username = username.trim()).isEmpty() || username.length() > 32 || !username.matches("[a-zA-Z0-9]+"))
                     {
-                        out.println("NAME_DENIED");
+                        if (username.isEmpty())
+                            out.println("NAME_DENIED No name specified");
+                        if (username.length() > 32)
+                            out.println("NAME_DENIED Name was longer than the maximum (32) character limit");
+                        if (!username.matches("[a-zA-Z0-9]+"))
+                            out.println("NAME_DENIED Name must contain only alphanumeric characters, and no spaces.");
+
                         System.out.println("Username denied, invalid name");
                         continue;
                     }
@@ -141,15 +155,12 @@ public class Server
                             break;
                         } else
                         {
-                            out.println("NAME_DENIED");
+                            out.println("NAME_DENIED Username is already in use");
                             System.out.println("Username denied, Already in use");
                             continue;
                         }
                     }
                 }
-
-                if (username == null)
-                    return;
 
                 for (Pair<String, String> message : messageHistory)
                     sendTo(message.getKey(), username, message.getValue(), true);
@@ -168,7 +179,6 @@ public class Server
                         {
                             synchronized (this)
                             {
-                                System.out.println("Pinged by client");
                                 lastPingReceived = now;
                             }
                         } else if (line.startsWith("DISCONNECT"))
@@ -192,7 +202,8 @@ public class Server
             {
                 users.remove(username);
 
-                sendToAll("SERVER", username + " has disconnected" + (leaveMessage != null && !(leaveMessage = leaveMessage.trim()).isEmpty() ? " - " + leaveMessage : ""), true);
+                if (username != null && !username.equals("\0"))
+                    sendToAll("SERVER", username + " has disconnected" + (leaveMessage != null && !(leaveMessage = leaveMessage.trim()).isEmpty() ? " - " + leaveMessage : ""), true);
 
                 try
                 {
@@ -238,7 +249,6 @@ public class Server
 
             if (now - lastPingSent > 1000000000L) // 1 second
             {
-                System.out.println("Pinging client");
                 out.println("PING");
                 lastPingSent = System.nanoTime();
             }
@@ -249,7 +259,7 @@ public class Server
                 disconnect("connection timed out");
             }
 
-            if (now - lastMessage > 60000000000L) // 60 seconds
+            if (now - lastMessage > 600000000000L) // 600 seconds
             {
                 out.println("KICKED kicked due to inactivity");
                 disconnect("kicked due to inactivity");
@@ -265,6 +275,11 @@ public class Server
         {
             this.connected = false;
             this.leaveMessage = reason;
+        }
+
+        public synchronized void purge(int count)
+        {
+            out.println("PURGE " + count);
         }
     }
 
@@ -321,6 +336,20 @@ public class Server
             }
         };
 
+        private static final UpdateHandler COMMAND_PURGE = new UpdateHandler("purge", "Purges all previous message history")
+        {
+            @Override
+            public void execute(String line)
+            {
+                for (Handler handler : users.values())
+                    handler.purge(0);
+
+                messageHistory.clear();
+
+                sendToAll("SERVER", "Message history purged", true);
+            }
+        };
+
         public String name;
         public String description;
 
@@ -354,8 +383,13 @@ public class Server
                         {
                             for (UpdateHandler c : allCommands)
                                 System.out.println(c.name + ":\t" + c.description + "\n");
+                        } else if (command.equals("purge"))
+                        {
+                            COMMAND_PURGE.execute(command);
                         } else
+                        {
                             System.out.println("Unknown command \"" + command + "\"");
+                        }
                     }
                 }
             }).start();
